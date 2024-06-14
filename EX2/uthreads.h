@@ -46,6 +46,9 @@ std::shared_ptr<Thread> search_deque(std::deque<std::shared_ptr<Thread>> q,
 // switch threads
 void yield(std::deque<std::shared_ptr<Thread>> deque_future, int del);
 
+// wakw up the relevent threads.
+void get_up();
+
 // use the scheduler().
 void scheduler();
 

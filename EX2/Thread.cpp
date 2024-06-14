@@ -39,6 +39,10 @@ int Thread::get_quantum_usecs()
   return _quantum_usecs;
 }
 
+int Thread::get_wake_up(){
+  return _wake_up;
+}
+
 void Thread::set_wake_up(int wake_up)
 {
   _wake_up = wake_up;
@@ -61,6 +65,10 @@ std::shared_ptr<JmpBufWrapper> Thread::get_buffer()
 void Thread::set_blocked(bool blocked)
 {
   _blocked = blocked;
+}
+
+bool Thread::get_blocked(){
+  return _blocked;
 }
 
 int Thread::get_running_time(){

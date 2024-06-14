@@ -33,10 +33,12 @@ class Thread{
   int get_state();
   int get_quantum_usecs();
   void set_wake_up(int _wake_up);
+  int get_wake_up();
   void set_buffer(std::shared_ptr<JmpBufWrapper > buffer);
   int get_tid();
   std::shared_ptr<JmpBufWrapper> get_buffer();
   void set_blocked(bool blocked);
+  bool get_blocked();
   int get_running_time();
   void inc_running_time();
 };

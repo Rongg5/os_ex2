@@ -34,7 +34,7 @@ address_t translate_address(address_t addr)
       : "0" (addr));
   return ret;
 }
- // to search and del in the queue the relvet theard.
+ // to search and del in the queue the relevant theard.
  std::shared_ptr<Thread> search_deque(std::deque<std::shared_ptr<Thread>> q,
                                      int tid)
  {
@@ -73,8 +73,27 @@ std::shared_ptr<JmpBufWrapper > setup_thread(std::shared_ptr<char[]> stack, thre
   return new_buff;
 }
 
+void get_up(){
+  // Using iterators to remove elements
+  for (auto it = blocked.begin(); it != blocked.end(); ) {
+    if (it->get()->get_wake_up() <= quantums_parts ) { // Condition to
+      // remove element
+      std::shared_ptr<Thread> add_ready = *it;
+      it = blocked.erase(it); // Erase and get new iterator
+      add_ready->set_wake_up (0);
+      if (!(add_ready->get_blocked()))
+      {
+        ready.push_back (add_ready);
+      }
+    } else {
+      ++it; // Move to the next element
+    }
+  }
+}
+
 void scheduler(int sig){
   quantums_parts++;
+  get_up();
   if (sig == SIGVTALRM){
     if (ready.empty()){
       (*running.get()).inc_running_time();
@@ -223,6 +242,7 @@ void yield(std::deque<std::shared_ptr<Thread>> deque_future, int del)
         deque_future.push_back (running);
       }
       (*running.get()).inc_running_time();
+      running->inc_running_time();
       siglongjmp (running->get_buffer ()->env, 1);
     }
   }
@@ -335,9 +355,12 @@ int uthread_resume(int tid)
     std::shared_ptr<Thread> resume_thread = search_deque (blocked, tid);
     if (resume_thread)
     {
-      resume_thread.get ()->set_state (READY);
       resume_thread.get ()->set_blocked (false);
-      ready.push_back (resume_thread);
+      if (resume_thread->get_wake_up()<=quantums_parts)
+      {
+        resume_thread.get ()->set_state (READY);
+        ready.push_back (resume_thread);
+      }
     }
     return 0;
   }
@@ -382,4 +405,37 @@ int uthread_sleep(int num_quantums){
   return 0;
 }
 
+/**
+ * @brief Returns the thread ID of the calling thread.
+ *
+ * @return The ID of the calling thread.
+*/
+int uthread_get_tid()
+{
+  return running->get_tid();
+}
 
+/**
+ * @brief Returns the total number of quantums since the library was initialized, including the current quantum.
+ *
+ * Right after the call to uthread_init, the value should be 1.
+ * Each time a new quantum starts, regardless of the reason, this number should be increased by 1.
+ *
+ * @return The total number of quantums.
+*/
+int uthread_get_total_quantums(){
+  return quantums_parts;
+}
+
+/**
+ * @brief Returns the number of quantums the thread with ID tid was in RUNNING state.
+ *
+ * On the first time a thread runs, the function should return 1. Every additional quantum that the thread starts should
+ * increase this value by 1 (so if the thread with ID tid is in RUNNING state when this function is called, include
+ * also the current quantum). If no thread with ID tid exists it is considered an error.
+ *
+ * @return On success, return the number of quantums of the thread with ID tid. On failure, return -1.
+*/
+int uthread_get_quantums(int tid){
+  return running->get_running_time();
+}
