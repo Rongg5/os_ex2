@@ -6,16 +6,51 @@
 #ifndef _UTHREADS_H
 #define _UTHREADS_H
 #include <queue>
-
+#include "Thread.h"
+#include <list>
+#include <queue>
+#include <iostream>
+#include <set>
+#include "algorithm"
+#include <signal.h>
+#include <sys/time.h>
 #define MAX_THREAD_NUM 100 /* maximal number of threads */
 #define STACK_SIZE 4096 /* stack size per thread (in bytes) */
+typedef unsigned long address_t;
+
 std::queue<int> myQueue;
 
 typedef void (*thread_entry_point)(void);
 
 /* External interface */
+/**
+ * this function find the new thread id.
+ * @return the new thread id.
+ */
+int create_tid ();
+/* A translation is required when using an address of a variable.
+   Use this as a black box in your code. */
+address_t translate_address(address_t addr);
 
+/**
+ * this function create a sigjmp_buf and set him up.
+ * @param tid
+ * @param stack
+ * @param entry_point
+ */
+std::shared_ptr<JmpBufWrapper > setup_thread(int tid, char *stack, thread_entry_point entry_point);
 
+// to search in the queue the relvet theard.
+std::shared_ptr<Thread> search_deque(std::deque<std::shared_ptr<Thread>> q,
+                                    int tid);
+// switch threads
+void yield(std::deque<std::shared_ptr<Thread>> deque_future, int del);
+
+// use the scheduler().
+void scheduler();
+
+// start the timer that will be change the scheduler.
+void start_timer();
 /**
  * @brief initializes the thread library.
  *
