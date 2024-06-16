@@ -18,6 +18,35 @@ static std::set<int> free_tid;
 static int global_quantum_usecs;
 static int quantums_parts;
 
+
+void mask_function(void)
+{
+    sigset_t blockSet, oldSet;
+    sigfillset(&blockSet); // Add all signals to the set
+
+    // Block all signals and save the current signal mask
+    if (sigprocmask(SIG_BLOCK, &blockSet, &oldSet) != 0)
+    {
+        std::cerr << "sigprocmask error: unable to mask" << std::strerror
+                (errno) << std::endl;
+        return;
+    }
+}
+void unmaskAllSignals(void)
+{
+    sigset_t unblockSet;
+
+    // Initialize an empty signal set
+    sigemptyset(&unblockSet);
+    // Set the signal mask to the empty set, unblocking all signals
+    if (sigprocmask(SIG_SETMASK, &unblockSet, nullptr) != 0)
+    {
+        std::cerr << "sigprocmask error: unable to unmask" << std::strerror
+                (errno) << std::endl;
+    }
+}
+
+
 int create_tid (){
   int new_tid = *(free_tid.begin());
   free_tid.erase (new_tid);
@@ -156,9 +185,11 @@ void start_timer()
 */
 int uthread_init(int quantum_usecs)
 {
-  if((quantum_usecs <= 0) or (initialized)){
+    mask_function()
+    if((quantum_usecs <= 0) or (initialized)){
     std::cerr << "This is an error message: fail in the init.\n" <<
               std::endl;
+        unmaskAllSignals()
     return -1;
   }
   try
@@ -174,11 +205,13 @@ int uthread_init(int quantum_usecs)
       free_tid.insert (i);
     }
     start_timer ();
+      unmaskAllSignals()
     return 0;
   }
   catch (...){
     std::cerr << "This is an error message: fail in the init.\n" <<
               std::endl;
+      unmaskAllSignals()
     return -1;
   }
 }
@@ -196,14 +229,17 @@ int uthread_init(int quantum_usecs)
  * @return On success, return the ID of the created thread. On failure, return -1.
 */
 int uthread_spawn(thread_entry_point entry_point){
+    mask_function()
   if (!entry_point){
     std::cerr << "This is an error message: the entry_point in null.\n" <<
     std::endl;
+    unmaskAllSignals()
     return -1;
   }
   if (count_treads>=MAX_THREAD_NUM){
     std::cerr << "This is an error message: you make too much treads.\n" <<
               std::endl;
+    unmaskAllSignals()
     return -1;
   }
   std::shared_ptr<JmpBufWrapper > new_buffer;
@@ -218,10 +254,12 @@ int uthread_spawn(thread_entry_point entry_point){
   catch (...){
     std::cerr << "This is an error message: error with the create thread.\n" <<
               std::endl;
+    unmaskAllSignals()
     return -1;
   }
   ready.push_back(new_thread);
   count_treads++;
+  unmaskAllSignals()
 }
 
 // this  function swith the running. remeber that the function only change
@@ -259,9 +297,11 @@ void yield(std::deque<std::shared_ptr<Thread>> deque_future, int del)
  * itself or the main thread is terminated, the function does not return.
 */
 int uthread_terminate(int tid){
+    mask_function()
   std::shared_ptr<Thread> del_thread;
   bool is_running = false;
   if (tid==0){
+      unmaskAllSignals()
     exit(0);
   }
   del_thread = search_deque(ready, tid);
@@ -272,6 +312,7 @@ int uthread_terminate(int tid){
     if ((*(running.get())).get_tid()!=tid){
       std::cerr << "This is an error message: try to terminates a "
                    "not existing thread.\n" << std::endl;
+      unmaskAllSignals()
       return -1;
     }
     del_thread = running;
@@ -280,6 +321,7 @@ int uthread_terminate(int tid){
   if (is_running){
 //    yield(ready, 1);
     scheduler(-1);
+    unmaskAllSignals()
   }
 }
 
@@ -293,17 +335,20 @@ int uthread_terminate(int tid){
  * @return On success, return 0. On failure, return -1.
 */
 int uthread_block(int tid){
+    mask_function()
   // Check if the thread ID is valid and not free
   auto it = free_tid.find(tid);
   if (it != free_tid.end() || tid >=MAX_THREAD_NUM){
     std::cerr << "This is an error message: try to resume not existing "
                  "thread.\n" << std::endl;
+    unmaskAllSignals()
     return -1;
   }
   if (tid == 0)
   {
     std::cerr << "This is an error message: try to resume the main.\n" <<
     std::endl;
+    unmaskAllSignals()
     return -1;
   }
   try{
@@ -312,7 +357,8 @@ int uthread_block(int tid){
       (*running.get()).set_blocked (true);
       blocked.push_back (running);
       scheduler (-1);
-      return 0;
+        unmaskAllSignals()
+        return 0;
     }
     std::shared_ptr<Thread> block_thread = search_deque (ready, tid);
     if(block_thread== nullptr){
@@ -323,11 +369,13 @@ int uthread_block(int tid){
       (*block_thread.get()).set_blocked (true);
       blocked.push_back (block_thread);
     }
+      unmaskAllSignals()
     return 0;
   }
   catch (...){
     std::cerr << "This is an error message: error in the block thread.\n" <<
     std::endl;
+      unmaskAllSignals()
     return -1;
   }
 }
@@ -343,11 +391,13 @@ int uthread_block(int tid){
 */
 int uthread_resume(int tid)
 {
+    mask_function()
   // Check if the thread ID is valid and not free
   auto it = free_tid.find(tid);
   if (it != free_tid.end() || tid >=MAX_THREAD_NUM){
     std::cerr << "This is an error message: try to resume not existing "
                   "thread.\n" << std::endl;
+    unmaskAllSignals()
     return -1;
   }
   try
@@ -362,11 +412,13 @@ int uthread_resume(int tid)
         ready.push_back (resume_thread);
       }
     }
+    unmaskAllSignals()
     return 0;
   }
   catch (...){
     std::cerr << "This is an error message: error with the uthread_resume "
                  "function.\n" << std::endl;
+    unmaskAllSignals()
     return -1;
   }
 }
@@ -385,11 +437,14 @@ int uthread_resume(int tid)
  * @return On success, return 0. On failure, return -1.
 */
 int uthread_sleep(int num_quantums){
+    mask_function()
   Thread* running_thread = running.get();
   if ((*running_thread).get_tid()==0){
     std::cerr << "This is an error message: try to sleep the main, not cool "
                  "bro.\n"
     << std::endl;
+    unmaskAllSignals()
+    return -1
   }
   try
   {
@@ -400,8 +455,10 @@ int uthread_sleep(int num_quantums){
   catch (...){
     std::cerr << "This is an error message: error in the sleep function.\n"
               << std::endl;
+    unmaskAllSignals()
     return -1;
   }
+  unmaskAllSignals()
   return 0;
 }
 

@@ -28,6 +28,12 @@ typedef void (*thread_entry_point)(void);
  * @return the new thread id.
  */
 int create_tid ();
+
+void mask_function(void);
+
+void unmaskAllSignals(void);
+
+
 /* A translation is required when using an address of a variable.
    Use this as a black box in your code. */
 address_t translate_address(address_t addr);
